@@ -14,12 +14,12 @@ export async function POST(req, res) {
     }
 
     const suggestion = await prisma.suggestion.findUnique({
-        where: {
-            userId: session.user.id,
-        },
-        select: {
-            videoIds: true,
-        },
+      where: {
+        userId: session.user.id,
+      },
+      select: {
+        suggestedVideoIds: true // Return the video IDs
+      },
     });
 
     if (!suggestion) {
@@ -28,6 +28,14 @@ export async function POST(req, res) {
           error: "No suggestion found"
         },{ status: 500 })
     }
+
+    // Fetch video details for each video ID
+    const videoDetailsPromises = suggestion.suggestedVideoIds.map(async (id) => {
+      const title = await fetchVideoTitle(id); // Replace with your actual fetching logic
+      return { id, title };
+    });
+
+    const videoDetails = await Promise.all(videoDetailsPromises);
 
     return NextResponse.json({
     success: true,
