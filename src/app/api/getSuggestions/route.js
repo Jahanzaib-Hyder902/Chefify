@@ -25,7 +25,7 @@ export async function POST(req) {
         userId: session.user.id,
       },
       select: {
-        videoIds: true // Return the video IDs
+        suggestedVideoIds: true // Return the video IDs
       },
     });
 
@@ -37,7 +37,7 @@ export async function POST(req) {
     }
 
     // Fetch video details for each video ID
-    const videoDetailsPromises = suggestion.videoIds.map(async (id) => {
+    const videoDetailsPromises = suggestion.suggestedVideoIds.map(async (id) => {
       const title = await fetchVideoTitle(id); // Replace with your actual fetching logic
       return { id, title };
     });

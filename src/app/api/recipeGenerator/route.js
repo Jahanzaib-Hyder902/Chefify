@@ -27,63 +27,47 @@ async function fetchOpenAICompletionsStream(messages, callback) {
   }
 }
 
-async function saveRecipe(userId, recipe, videoIds) {
-  try {
-    const savedRecipe = await prisma.recipe.create({
-      data: {
-        userId,
-        ...recipe,
-        videoIds,
-      },
-    });
-    console.log("Recipe saved to database with videos:", savedRecipe);
-  } catch (error) {
-    console.error("Error saving recipe to database:", error);
-  }
-}
+async function saveRelatedVideos(userId, videoIds) {
+  console.log(videoIds);
+  
+  // Fetch the current record
+  const suggestion = await prisma.suggestion.findUnique({
+    where: { userId },
+    select: { savedVideoIds: true },
+  });
 
-async function saveRelatedVideos(userId) {
-  const recipes = await prisma.recipe.findMany({
-    where: {
+  // Determine the new array (avoid duplicates by using a Set)
+  const updatedVideoIds = suggestion
+    ? Array.from(new Set([...suggestion.savedVideoIds, ...videoIds])) // Merge and deduplicate
+    : videoIds; // Use the new IDs if no record exists
+
+  // Perform the upsert operation
+  await prisma.suggestion.upsert({
+    where: { userId },
+    create: {
       userId,
+      savedVideoIds: updatedVideoIds, // Initialize with new array
+      suggestedVideoIds: [], // Assuming this needs to be initialized too
     },
-    select: {
-      videoIds: true,
+    update: {
+      savedVideoIds: updatedVideoIds, // Update with new array
     },
   });
 
-  const allVideoIds = recipes.flatMap((recipe) => recipe.videoIds);
+  const randomIndex = Math.floor(Math.random() * updatedVideoIds.length);
 
-  if (allVideoIds.length === 0) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "No video ids for this user",
-      },
-      { status: 500 }
-    );
-  }
+  const randomVideoId = updatedVideoIds[randomIndex];
 
-  const randomIndex = Math.floor(Math.random() * allVideoIds.length);
+  const responseVideoIds = await getRelatedVideos(randomVideoId);
 
-  const randomVideoId = allVideoIds[randomIndex];
-
-  const videoIds = await getRelatedVideos(randomVideoId);
-
-  const shuffledVideoIds = videoIds.sort(() => 0.5 - Math.random());
+  const shuffledVideoIds = responseVideoIds.sort(() => 0.5 - Math.random());
 
   const selectedVideoIds = shuffledVideoIds.slice(0, 5);
 
-  await prisma.suggestion.upsert({
-    where: {
-      userId,
-    },
-    update: {
-      videoIds: selectedVideoIds,
-    },
-    create: {
-      userId,
-      videoIds: selectedVideoIds,
+  await prisma.suggestion.update({
+    where: { userId }, // Specify the condition to find the record
+    data: {
+      suggestedVideoIds: selectedVideoIds, // Update the suggestedVideoIds field
     },
   });
 }
@@ -127,8 +111,7 @@ export async function GET(req) {
             instructions: fullRecipe,
           };
 
-          await saveRecipe(session.user.id, recipe, videoIds);
-          await saveRelatedVideos(session.user.id);
+          await saveRelatedVideos(session.user.id, videoIds);
 
           chunkResponse = {
             action: "complete",

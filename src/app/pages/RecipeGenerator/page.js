@@ -68,8 +68,22 @@ function App() {
       } else if (data.action === "chunk") {
         setRecipeText((prev) => prev + data.chunk);
       } else if (data.action === "complete") {
-        const { videoIds } = await data;
+        const { videoIds, recipe } = await data;
         setVideoIds(videoIds);
+                // Below is the code to save recipes whenever needed
+        // const response = await fetch("/api/saveRecipe", {
+        //   method: "POST",
+        //   headers: {
+        //     "Content-Type": "application/json",
+        //   },
+        //   body: JSON.stringify({
+        //     recipe,
+        //     videoIds,
+        //   }),
+        // });
+
+        // const result = await response.json();
+        // console.log("Result: "+result);
 
         // Set error message if no video IDs are found
         if (videoIds.length === 0) {
